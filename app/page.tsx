@@ -19,11 +19,15 @@ type FormValues = {
   receipt_needed: string;
   receipt_name: string;
   name: string;
+  company_name: string;
   job_title: string;
   target_people: string;
   ng_people: string;
+  hobby: string;
   self_pr: string;
   company_pr: string;
+  profile_url: string;
+  company_info_mode: "self_pr" | "company_pr" | "url";
   ai_summary: string;
   tags: string;
 };
@@ -50,11 +54,15 @@ function emptyForm(): FormValues {
     receipt_needed: "",
     receipt_name: "",
     name: "",
+    company_name: "",
     job_title: "",
     target_people: "",
     ng_people: "",
+    hobby: "",
     self_pr: "",
     company_pr: "",
+    profile_url: "",
+    company_info_mode: "company_pr",
     ai_summary: "",
     tags: "",
   };
@@ -91,11 +99,20 @@ function paramsFromSearch(searchParams: URLSearchParams): FormValues {
     receipt_needed: normalizeReceiptNeeded(searchParams.get("receipt_needed") ?? ""),
     receipt_name: searchParams.get("receipt_name") ?? "",
     name: searchParams.get("name") ?? "",
+    company_name: searchParams.get("company_name") ?? "",
     job_title: searchParams.get("job_title") ?? "",
     target_people: searchParams.get("target_people") ?? "",
     ng_people: searchParams.get("ng_people") ?? "",
+    hobby: searchParams.get("hobby") ?? "",
     self_pr: searchParams.get("self_pr") ?? "",
     company_pr: searchParams.get("company_pr") ?? "",
+    profile_url: searchParams.get("profile_url") ?? "",
+    company_info_mode:
+      (searchParams.get("company_info_mode") as
+        | "self_pr"
+        | "company_pr"
+        | "url"
+        | null) ?? "company_pr",
     ai_summary: searchParams.get("ai_summary") ?? "",
     tags: searchParams.get("tags") ?? "",
   };
@@ -138,7 +155,7 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-stone-200/90 bg-white p-6 shadow sm:p-8">
+    <section className="rounded-2xl border border-zinc-200 bg-white/90 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.08)] backdrop-blur-md sm:p-8">
       <h2 className="border-b border-stone-100 pb-4 text-lg font-bold tracking-tight text-stone-900 sm:text-xl">
         {title}
       </h2>
@@ -148,7 +165,7 @@ function Card({
 }
 
 function inputBase() {
-  return "w-full rounded-xl border border-stone-200 bg-white px-4 py-3.5 text-base text-stone-900 shadow-sm placeholder:text-stone-400 transition focus:border-amber-600/40 focus:outline-none focus:ring-2 focus:ring-amber-600/15";
+  return "w-full rounded-xl border border-zinc-200 bg-white px-4 py-3.5 text-base text-stone-900 shadow-sm placeholder:text-stone-400 transition focus:border-amber-600/40 focus:outline-none focus:ring-2 focus:ring-amber-600/15";
 }
 
 function NetworkingFormPage() {
@@ -176,8 +193,20 @@ function NetworkingFormPage() {
         const res = await fetch(
           `/api/user-data?line_id=${encodeURIComponent(lineId)}`,
         );
-        const data = (await res.json()) as Record<string, string> & {
+        const data = (await res.json()) as {
           status?: string;
+          name?: string;
+          company_name_input?: string;
+          job_title?: string;
+          target_people?: string;
+          ng_people?: string;
+          hobby?: string;
+          self_pr?: string;
+          profile_url?: string;
+          ai_summary?: string;
+          tags?: string;
+          receipt_needed?: string;
+          receipt_name?: string;
         };
 
         if (cancelled) return;
@@ -189,31 +218,60 @@ function NetworkingFormPage() {
           setFormData((prev) => ({
             ...prev,
             name: "",
+            company_name: "",
             job_title: "",
             target_people: "",
             ng_people: "",
+            hobby: "",
             self_pr: "",
             company_pr: "",
+            profile_url: "",
             ai_summary: "",
             tags: "",
             receipt_needed: "",
             receipt_name: "",
+            company_info_mode: "company_pr",
           }));
           return;
         }
 
+        // 指定マッピング（最重要）
         setFormData((prev) => ({
           ...prev,
-          name: data.name ?? "",
-          job_title: data.job_title ?? "",
-          target_people: data.target_people ?? "",
-          ng_people: data.ng_people ?? "",
-          self_pr: data.self_pr ?? "",
-          company_pr: data.company_pr ?? data.company_name_input ?? "",
-          ai_summary: data.ai_summary ?? "",
-          tags: data.tags ?? "",
-          receipt_needed: normalizeReceiptNeeded(data.receipt_needed ?? ""),
-          receipt_name: data.receipt_name ?? "",
+
+          // 基本
+          name: data.name || "",
+          company_name: data.company_name_input || "",
+          job_title: data.job_title || "",
+
+          // 交流
+          target_people: data.target_people || "",
+          ng_people: data.ng_people || "",
+
+          // ここ重要（hobby → 得意なこと）
+          hobby: data.hobby || "",
+
+          // PR系
+          self_pr: data.self_pr || "",
+          company_pr: data.self_pr || "", // fallback
+
+          // URL
+          profile_url: data.profile_url || "",
+
+          // 領収書
+          receipt_needed: normalizeReceiptNeeded(data.receipt_needed || ""),
+          receipt_name: data.receipt_name || "",
+
+          // モード自動判定（重要）
+          company_info_mode: data.self_pr
+            ? "self_pr"
+            : data.profile_url
+              ? "url"
+              : "company_pr",
+
+          // AI
+          ai_summary: data.ai_summary || "",
+          tags: data.tags || "",
         }));
       } catch (fetchError) {
         console.log(fetchError);
@@ -257,10 +315,27 @@ function NetworkingFormPage() {
     setSubmitting(true);
     try {
       const payload = {
-        ...formData,
-        company_name_input: formData.company_pr,
-        hobby: "",
-        profile_url: "",
+        event_id: formData.event_id,
+        line_id: formData.line_id,
+        event_name: formData.event_name,
+        event_date: formData.event_date,
+        name: formData.name,
+        company_name_input: formData.company_name,
+        job_title: formData.job_title,
+        target_people: formData.target_people,
+        ng_people: formData.ng_people,
+        hobby: formData.hobby,
+        self_pr: formData.self_pr,
+        profile_url: formData.profile_url,
+        ai_summary: formData.ai_summary,
+        tags: formData.tags,
+        receipt_needed: formData.receipt_needed,
+        receipt_name: formData.receipt_name,
+        reception_number: formData.reception_number,
+        payment_amount: formData.payment_amount,
+        // 追加フィールド（UI用）
+        company_pr: formData.company_pr,
+        company_info_mode: formData.company_info_mode,
       };
 
       const res = await fetch("/api/submit", {
@@ -287,7 +362,7 @@ function NetworkingFormPage() {
     return (
       <div className="mx-auto w-full max-w-3xl px-5 py-14 sm:px-8">
         <div
-          className="rounded-xl border border-emerald-200/90 bg-white p-10 text-center shadow"
+          className="rounded-2xl border border-zinc-200 bg-white/90 p-10 text-center shadow-[0_20px_60px_rgba(0,0,0,0.08)] backdrop-blur-md"
           role="status"
         >
           <p className="text-xl font-bold text-emerald-900">
@@ -310,7 +385,7 @@ function NetworkingFormPage() {
           </h1>
         </header>
 
-        <section className="mb-8 rounded-xl border border-stone-200/90 bg-white p-6 shadow sm:p-8">
+        <section className="mb-8 rounded-2xl border border-zinc-200 bg-white/90 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.08)] backdrop-blur-md sm:p-8">
           <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-stone-500">
             データ受信状況
           </h2>
@@ -431,6 +506,18 @@ function NetworkingFormPage() {
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             </div>
+            <div>
+              <FieldLabel htmlFor="company_name" title="会社名" />
+              <input
+                id="company_name"
+                className={inputBase()}
+                value={formData.company_name}
+                onChange={(e) =>
+                  setFormData({ ...formData, company_name: e.target.value })
+                }
+                placeholder="例: 株式会社〇〇"
+              />
+            </div>
           </Card>
 
           <Card title="④ 交流情報">
@@ -451,6 +538,12 @@ function NetworkingFormPage() {
                 title="どんな協力を求めていますか？"
                 required
               />
+              <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 px-4 py-3 text-sm leading-relaxed text-stone-700">
+                <div className="mb-1 text-xs font-bold uppercase tracking-[0.2em] text-stone-500">
+                  例文
+                </div>
+                <pre className="whitespace-pre-wrap font-sans">{TARGET_HELP_PLACEHOLDER}</pre>
+              </div>
               <textarea
                 id="target_people"
                 className={`${inputBase()} min-h-[160px] resize-y leading-relaxed`}
@@ -466,6 +559,12 @@ function NetworkingFormPage() {
                 htmlFor="ng_people"
                 title="どんな協力は求めていませんか？"
               />
+              <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 px-4 py-3 text-sm leading-relaxed text-stone-700">
+                <div className="mb-1 text-xs font-bold uppercase tracking-[0.2em] text-stone-500">
+                  例文
+                </div>
+                <pre className="whitespace-pre-wrap font-sans">{NG_HELP_PLACEHOLDER}</pre>
+              </div>
               <textarea
                 id="ng_people"
                 className={`${inputBase()} min-h-[140px] resize-y leading-relaxed`}
@@ -478,21 +577,57 @@ function NetworkingFormPage() {
             </div>
             <div>
               <FieldLabel
-                htmlFor="self_pr_value"
+                htmlFor="hobby"
                 title="あなたの得意なこと・提供できる価値"
               />
+              <p className="text-sm leading-relaxed text-stone-500">
+                スキル・経験・人脈など、相手の役に立てそうなことを書くと会話のきっかけになります。
+              </p>
               <textarea
-                id="self_pr_value"
+                id="hobby"
                 className={`${inputBase()} min-h-[160px] resize-y leading-relaxed`}
-                value={formData.self_pr}
+                value={formData.hobby}
                 onChange={(e) =>
-                  setFormData({ ...formData, self_pr: e.target.value })
+                  setFormData({ ...formData, hobby: e.target.value })
                 }
               />
             </div>
           </Card>
 
           <Card title="⑤ 会社PRブロック">
+            <div>
+              <FieldLabel
+                htmlFor="company_info_mode"
+                title="会社情報の入力モード"
+                hint="自動で選択されています。必要なら切り替えてください。"
+              />
+              <div className="grid grid-cols-3 gap-2 rounded-xl border border-zinc-200 bg-white p-2">
+                {(
+                  [
+                    { key: "self_pr", label: "自己PR" },
+                    { key: "company_pr", label: "会社PR" },
+                    { key: "url", label: "URL" },
+                  ] as const
+                ).map((o) => (
+                  <button
+                    key={o.key}
+                    type="button"
+                    className={[
+                      "rounded-lg px-3 py-2 text-sm font-semibold transition",
+                      formData.company_info_mode === o.key
+                        ? "bg-stone-900 text-white"
+                        : "bg-stone-50 text-stone-700 hover:bg-stone-100",
+                    ].join(" ")}
+                    onClick={() =>
+                      setFormData({ ...formData, company_info_mode: o.key })
+                    }
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div>
               <FieldLabel htmlFor="self_pr" title="自己PR" />
               <textarea
@@ -502,6 +637,7 @@ function NetworkingFormPage() {
                 onChange={(e) =>
                   setFormData({ ...formData, self_pr: e.target.value })
                 }
+                style={{ display: formData.company_info_mode === "self_pr" ? undefined : "none" }}
               />
             </div>
             <div>
@@ -513,6 +649,19 @@ function NetworkingFormPage() {
                 onChange={(e) =>
                   setFormData({ ...formData, company_pr: e.target.value })
                 }
+                style={{ display: formData.company_info_mode === "company_pr" ? undefined : "none" }}
+              />
+            </div>
+            <div style={{ display: formData.company_info_mode === "url" ? undefined : "none" }}>
+              <FieldLabel htmlFor="profile_url" title="URL" />
+              <input
+                id="profile_url"
+                className={inputBase()}
+                value={formData.profile_url}
+                onChange={(e) =>
+                  setFormData({ ...formData, profile_url: e.target.value })
+                }
+                placeholder="https://"
               />
             </div>
           </Card>
