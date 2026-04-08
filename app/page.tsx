@@ -27,7 +27,7 @@ type FormValues = {
   self_pr: string;
   company_pr: string;
   profile_url: string;
-  company_info_mode: "self_pr" | "company_pr" | "url";
+  company_info_mode: "self_pr" | "company_pr" | "url" | "";
   ai_summary: string;
   tags: string;
 };
@@ -262,12 +262,12 @@ function NetworkingFormPage() {
           receipt_needed: normalizeReceiptNeeded(data.receipt_needed || ""),
           receipt_name: data.receipt_name || "",
 
-          // モード自動判定（重要）
-          company_info_mode: data.self_pr
-            ? "self_pr"
-            : data.profile_url
-              ? "url"
-              : "company_pr",
+          // モード自動判定（重要）: URL優先 → 次に self_pr → それ以外は空
+          company_info_mode: data.profile_url
+            ? "url"
+            : data.self_pr
+              ? "self_pr"
+              : "",
 
           // AI
           ai_summary: data.ai_summary || "",
@@ -635,7 +635,11 @@ function NetworkingFormPage() {
                 className={`${inputBase()} min-h-[120px] resize-y leading-relaxed`}
                 value={formData.self_pr}
                 onChange={(e) =>
-                  setFormData({ ...formData, self_pr: e.target.value })
+                  setFormData({
+                    ...formData,
+                    self_pr: e.target.value,
+                    company_pr: e.target.value,
+                  })
                 }
                 style={{ display: formData.company_info_mode === "self_pr" ? undefined : "none" }}
               />
@@ -647,7 +651,11 @@ function NetworkingFormPage() {
                 className={`${inputBase()} min-h-[120px] resize-y leading-relaxed`}
                 value={formData.company_pr}
                 onChange={(e) =>
-                  setFormData({ ...formData, company_pr: e.target.value })
+                  setFormData({
+                    ...formData,
+                    company_pr: e.target.value,
+                    self_pr: e.target.value,
+                  })
                 }
                 style={{ display: formData.company_info_mode === "company_pr" ? undefined : "none" }}
               />
