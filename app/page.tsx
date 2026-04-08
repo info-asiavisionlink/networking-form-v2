@@ -9,76 +9,61 @@ import {
 } from "react";
 import { useSearchParams } from "next/navigation";
 
-const QUERY_KEYS = [
-  "event_id",
-  "line_id",
-  "event_name",
-  "event_date",
-  "name",
-  "company_name_input",
-  "job_title",
-  "target_people",
-  "ng_people",
-  "hobby",
-  "self_pr",
-  "profile_url",
-  "ai_summary",
-  "tags",
-  "receipt_needed",
-  "receipt_name",
-] as const;
-
-const N8N_PROFILE_KEYS = [
-  "name",
-  "company_name_input",
-  "job_title",
-  "target_people",
-  "ng_people",
-  "hobby",
-  "self_pr",
-  "profile_url",
-  "ai_summary",
-  "tags",
-  "receipt_needed",
-  "receipt_name",
-] as const;
-
-type QueryKey = (typeof QUERY_KEYS)[number];
-
-type FormValues = Record<QueryKey, string> & {
+type FormValues = {
+  event_id: string;
+  line_id: string;
+  event_name: string;
+  event_date: string;
   reception_number: string;
   payment_amount: string;
+  receipt_needed: string;
+  receipt_name: string;
+  name: string;
+  job_title: string;
+  target_people: string;
+  ng_people: string;
+  self_pr: string;
+  company_pr: string;
+  ai_summary: string;
+  tags: string;
 };
 
+const TARGET_HELP_PLACEHOLDER = `例：
+・SNSのいいね・シェアなど拡散を手伝ってくれる方
+・見込み顧客を紹介してくれる方
+・サービスについてフィードバックをくれる方
+など`;
+
+const NG_HELP_PLACEHOLDER = `例：
+・営業されること
+・MLMや強引な勧誘
+など`;
+
 function emptyForm(): FormValues {
-  const base = {} as FormValues;
-  for (const key of QUERY_KEYS) {
-    base[key] = "";
-  }
-  base.reception_number = "";
-  base.payment_amount = "";
-  return base;
+  return {
+    event_id: "",
+    line_id: "",
+    event_name: "",
+    event_date: "",
+    reception_number: "",
+    payment_amount: "",
+    receipt_needed: "",
+    receipt_name: "",
+    name: "",
+    job_title: "",
+    target_people: "",
+    ng_people: "",
+    self_pr: "",
+    company_pr: "",
+    ai_summary: "",
+    tags: "",
+  };
 }
 
-function paramsFromSearch(searchParams: URLSearchParams): FormValues {
-  const next = emptyForm();
-  for (const key of QUERY_KEYS) {
-    next[key] = searchParams.get(key) ?? "";
-  }
-  return next;
-}
-
-function emptyN8nProfile(): Pick<FormValues, (typeof N8N_PROFILE_KEYS)[number]> {
-  const o = {} as Pick<FormValues, (typeof N8N_PROFILE_KEYS)[number]>;
-  for (const key of N8N_PROFILE_KEYS) {
-    o[key] = "";
-  }
-  return o;
-}
-
-function wantsReceipt(raw: string): boolean {
+function normalizeReceiptNeeded(raw: string): string {
   const v = raw.trim().toLowerCase();
-  return (
+  if (!v) return "";
+  if (
     v === "1" ||
     v === "true" ||
     v === "yes" ||
@@ -86,21 +71,63 @@ function wantsReceipt(raw: string): boolean {
     v === "希望" ||
     v === "希望する" ||
     v === "希望済み"
+  ) {
+    return "希望する";
+  }
+  if (v === "希望しない" || v === "0" || v === "false" || v === "不要") {
+    return "希望しない";
+  }
+  return raw.trim();
+}
+
+function paramsFromSearch(searchParams: URLSearchParams): FormValues {
+  return {
+    event_id: searchParams.get("event_id") ?? "",
+    line_id: searchParams.get("line_id") ?? "",
+    event_name: searchParams.get("event_name") ?? "",
+    event_date: searchParams.get("event_date") ?? "",
+    reception_number: searchParams.get("reception_number") ?? "",
+    payment_amount: searchParams.get("payment_amount") ?? "",
+    receipt_needed: normalizeReceiptNeeded(searchParams.get("receipt_needed") ?? ""),
+    receipt_name: searchParams.get("receipt_name") ?? "",
+    name: searchParams.get("name") ?? "",
+    job_title: searchParams.get("job_title") ?? "",
+    target_people: searchParams.get("target_people") ?? "",
+    ng_people: searchParams.get("ng_people") ?? "",
+    self_pr: searchParams.get("self_pr") ?? "",
+    company_pr: searchParams.get("company_pr") ?? "",
+    ai_summary: searchParams.get("ai_summary") ?? "",
+    tags: searchParams.get("tags") ?? "",
+  };
+}
+
+function FieldLabel({
+  htmlFor,
+  title,
+  required,
+  hint,
+}: {
+  htmlFor: string;
+  title: string;
+  required?: boolean;
+  hint?: string;
+}) {
+  return (
+    <div className="mb-2">
+      <label
+        htmlFor={htmlFor}
+        className="text-base font-bold tracking-tight text-stone-900"
+      >
+        {title}
+        {required ? (
+          <span className="ml-1 text-sm font-semibold text-amber-800">*</span>
+        ) : null}
+      </label>
+      {hint ? (
+        <p className="mt-1.5 text-sm leading-relaxed text-stone-500">{hint}</p>
+      ) : null}
+    </div>
   );
-}
-
-function labelClass() {
-  return "block text-sm font-medium text-zinc-700 dark:text-zinc-300";
-}
-
-function inputClass(editable: boolean) {
-  return [
-    "mt-1 w-full rounded-lg border px-3 py-2 text-base text-zinc-900 shadow-sm outline-none transition",
-    "border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50",
-    editable
-      ? "focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
-      : "cursor-not-allowed bg-zinc-50 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400",
-  ].join(" ");
 }
 
 function Card({
@@ -111,13 +138,17 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 sm:p-6">
-      <h2 className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+    <section className="rounded-xl border border-stone-200/90 bg-white p-6 shadow sm:p-8">
+      <h2 className="border-b border-stone-100 pb-4 text-lg font-bold tracking-tight text-stone-900 sm:text-xl">
         {title}
       </h2>
-      <div className="mt-4 space-y-4">{children}</div>
+      <div className="mt-6 space-y-7">{children}</div>
     </section>
   );
+}
+
+function inputBase() {
+  return "w-full rounded-xl border border-stone-200 bg-white px-4 py-3.5 text-base text-stone-900 shadow-sm placeholder:text-stone-400 transition focus:border-amber-600/40 focus:outline-none focus:ring-2 focus:ring-amber-600/15";
 }
 
 function NetworkingFormPage() {
@@ -136,7 +167,6 @@ function NetworkingFormPage() {
     const lineId = searchParams.get("line_id")?.trim() ?? "";
 
     setFormData(base);
-
     if (!lineId) return;
 
     let cancelled = false;
@@ -146,66 +176,55 @@ function NetworkingFormPage() {
         const res = await fetch(
           `/api/user-data?line_id=${encodeURIComponent(lineId)}`,
         );
-        const data = (await res.json()) as {
+        const data = (await res.json()) as Record<string, string> & {
           status?: string;
-          error?: string;
-          name?: string;
-          company_name_input?: string;
-          job_title?: string;
-          target_people?: string;
-          ng_people?: string;
-          hobby?: string;
-          self_pr?: string;
-          profile_url?: string;
-          ai_summary?: string;
-          tags?: string;
-          receipt_needed?: string;
-          receipt_name?: string;
         };
 
         if (cancelled) return;
-
         if (!res.ok) {
           console.log("[networking form] /api/user-data failed", res.status, data);
           return;
         }
-
         if (data?.status === "not_found") {
-          setFormData((prev) => ({ ...prev, ...emptyN8nProfile() }));
+          setFormData((prev) => ({
+            ...prev,
+            name: "",
+            job_title: "",
+            target_people: "",
+            ng_people: "",
+            self_pr: "",
+            company_pr: "",
+            ai_summary: "",
+            tags: "",
+            receipt_needed: "",
+            receipt_name: "",
+          }));
           return;
         }
 
         setFormData((prev) => ({
           ...prev,
           name: data.name ?? "",
-          company_name_input: data.company_name_input ?? "",
           job_title: data.job_title ?? "",
           target_people: data.target_people ?? "",
           ng_people: data.ng_people ?? "",
-          hobby: data.hobby ?? "",
           self_pr: data.self_pr ?? "",
-          profile_url: data.profile_url ?? "",
+          company_pr: data.company_pr ?? data.company_name_input ?? "",
           ai_summary: data.ai_summary ?? "",
           tags: data.tags ?? "",
-          receipt_needed: data.receipt_needed ?? "",
+          receipt_needed: normalizeReceiptNeeded(data.receipt_needed ?? ""),
           receipt_name: data.receipt_name ?? "",
         }));
-      } catch (error) {
-        console.log(error);
+      } catch (fetchError) {
+        console.log(fetchError);
       }
     };
 
     void fetchUser();
-
     return () => {
       cancelled = true;
     };
   }, [stableKey]);
-
-  const receiptLabel = wantsReceipt(formData.receipt_needed) ||
-    formData.receipt_name.trim()
-    ? "希望済み"
-    : "不要";
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -216,32 +235,45 @@ function NetworkingFormPage() {
       return;
     }
     if (!formData.payment_amount.trim()) {
-      setError("支払い金額を入力してください。");
+      setError("お支払い金額を入力してください。");
+      return;
+    }
+    if (
+      formData.receipt_needed !== "希望する" &&
+      formData.receipt_needed !== "希望しない"
+    ) {
+      setError("領収書希望を選択してください。");
+      return;
+    }
+    if (!formData.name.trim()) {
+      setError("氏名を入力してください。");
+      return;
+    }
+    if (!formData.target_people.trim()) {
+      setError("どんな協力を求めていますか？ を入力してください。");
       return;
     }
 
-    const payload = { ...formData };
-
     setSubmitting(true);
     try {
+      const payload = {
+        ...formData,
+        company_name_input: formData.company_pr,
+        hobby: "",
+        profile_url: "",
+      };
+
       const res = await fetch("/api/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      let data: { success?: boolean } = {};
-      try {
-        data = (await res.json()) as { success?: boolean };
-      } catch {
-        /* ignore */
-      }
-
+      const data = (await res.json()) as { success?: boolean };
       if (!res.ok || !data.success) {
         setError("送信に失敗しました。もう一度お試しください");
         return;
       }
-
       setSuccess(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch {
@@ -253,16 +285,13 @@ function NetworkingFormPage() {
 
   if (success) {
     return (
-      <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6">
+      <div className="mx-auto w-full max-w-3xl px-5 py-14 sm:px-8">
         <div
-          className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-center dark:border-emerald-900 dark:bg-emerald-950/40"
+          className="rounded-xl border border-emerald-200/90 bg-white p-10 text-center shadow"
           role="status"
         >
-          <p className="text-lg font-semibold text-emerald-900 dark:text-emerald-100">
+          <p className="text-xl font-bold text-emerald-900">
             参加登録が完了しました🔥
-          </p>
-          <p className="mt-2 text-sm text-emerald-800 dark:text-emerald-200">
-            ご登録ありがとうございます。当日お待ちしております。
           </p>
         </div>
       </div>
@@ -270,306 +299,268 @@ function NetworkingFormPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6 sm:py-10">
-      <header className="mb-6 space-y-2">
-        <p className="text-sm font-medium text-violet-700 dark:text-violet-300">
-          再参加の方 · クイック登録
-        </p>
-        <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-3xl">
-          参加登録（再訪）
-        </h1>
-        <p className="rounded-xl border border-amber-200/80 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100">
-          前回の情報を元に入力されています。必要に応じて修正してください
-        </p>
-      </header>
+    <div className="min-h-full bg-gradient-to-b from-[#f7f3ef] to-white pb-20 pt-10 sm:pb-24 sm:pt-14">
+      <div className="mx-auto w-full max-w-3xl px-5 sm:px-8">
+        <header className="mb-10 space-y-4 text-center sm:mb-12 sm:text-left">
+          <p className="text-sm font-semibold tracking-wide text-amber-900/80">
+            再訪のお客様 · 参加登録
+          </p>
+          <h1 className="text-3xl font-bold tracking-tight text-stone-900 sm:text-4xl">
+            参加登録フォーム
+          </h1>
+        </header>
 
-      <form className="space-y-6" onSubmit={onSubmit} noValidate>
-        {error ? (
-          <div
-            className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-100"
-            role="alert"
-          >
-            {error}
-          </div>
-        ) : null}
+        <section className="mb-8 rounded-xl border border-stone-200/90 bg-white p-6 shadow sm:p-8">
+          <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-stone-500">
+            データ受信状況
+          </h2>
+          <dl className="mt-5 grid gap-5 sm:grid-cols-2">
+            <div className="rounded-lg bg-stone-50/80 px-4 py-3">
+              <dt className="text-xs font-bold text-stone-500">LINE ID</dt>
+              <dd className="mt-1 break-all font-mono text-sm font-medium text-stone-900">
+                {formData.line_id || "—"}
+              </dd>
+            </div>
+            <div className="rounded-lg bg-stone-50/80 px-4 py-3">
+              <dt className="text-xs font-bold text-stone-500">イベントID</dt>
+              <dd className="mt-1 break-all font-mono text-sm font-medium text-stone-900">
+                {formData.event_id || "—"}
+              </dd>
+            </div>
+            <div className="rounded-lg bg-stone-50/80 px-4 py-3 sm:col-span-2">
+              <dt className="text-xs font-bold text-stone-500">イベント名</dt>
+              <dd className="mt-1 text-sm font-semibold text-stone-900">
+                {formData.event_name || "—"}
+              </dd>
+            </div>
+            <div className="rounded-lg bg-stone-50/80 px-4 py-3 sm:col-span-2">
+              <dt className="text-xs font-bold text-stone-500">開催日</dt>
+              <dd className="mt-1 text-sm font-semibold text-stone-900">
+                {formData.event_date || "—"}
+              </dd>
+            </div>
+          </dl>
+        </section>
 
-        <Card title="1. イベント情報（参照のみ）">
-          <div>
-            <label className={labelClass()} htmlFor="event_name">
-              イベント名
-            </label>
-            <input
-              id="event_name"
-              className={inputClass(false)}
-              readOnly
-              value={formData.event_name}
-            />
-          </div>
-          <div>
-            <label className={labelClass()} htmlFor="event_date">
-              開催日
-            </label>
-            <input
-              id="event_date"
-              className={inputClass(false)}
-              readOnly
-              value={formData.event_date}
-            />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+        <form className="space-y-8" onSubmit={onSubmit} noValidate>
+          {error ? (
+            <div
+              className="rounded-xl border border-red-200 bg-red-50/90 px-5 py-4 text-sm font-medium text-red-900 shadow-sm"
+              role="alert"
+            >
+              {error}
+            </div>
+          ) : null}
+
+          <Card title="② 受付・支払い">
+            <div className="grid gap-7 sm:grid-cols-2">
+              <div>
+                <FieldLabel htmlFor="reception_number" title="受付番号" required />
+                <input
+                  id="reception_number"
+                  className={inputBase()}
+                  value={formData.reception_number}
+                  onChange={(e) =>
+                    setFormData({ ...formData, reception_number: e.target.value })
+                  }
+                  inputMode="numeric"
+                />
+              </div>
+              <div>
+                <FieldLabel htmlFor="payment_amount" title="お支払い金額" required />
+                <input
+                  id="payment_amount"
+                  className={inputBase()}
+                  value={formData.payment_amount}
+                  onChange={(e) =>
+                    setFormData({ ...formData, payment_amount: e.target.value })
+                  }
+                  inputMode="decimal"
+                />
+              </div>
+            </div>
             <div>
-              <label className={labelClass()} htmlFor="event_id">
-                イベントID
-              </label>
+              <FieldLabel htmlFor="receipt_needed_group" title="領収書希望" required />
+              <div id="receipt_needed_group" className="mt-3 flex gap-6">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="receipt_needed"
+                    checked={formData.receipt_needed === "希望する"}
+                    onChange={() =>
+                      setFormData({ ...formData, receipt_needed: "希望する" })
+                    }
+                  />
+                  希望する
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="receipt_needed"
+                    checked={formData.receipt_needed === "希望しない"}
+                    onChange={() =>
+                      setFormData({ ...formData, receipt_needed: "希望しない" })
+                    }
+                  />
+                  希望しない
+                </label>
+              </div>
+            </div>
+            {formData.receipt_needed === "希望する" ? (
+              <div>
+                <FieldLabel htmlFor="receipt_name" title="領収書宛名" />
+                <input
+                  id="receipt_name"
+                  className={inputBase()}
+                  value={formData.receipt_name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, receipt_name: e.target.value })
+                  }
+                />
+              </div>
+            ) : null}
+          </Card>
+
+          <Card title="③ 基本情報">
+            <div>
+              <FieldLabel htmlFor="name" title="氏名" required />
               <input
-                id="event_id"
-                className={inputClass(false)}
-                readOnly
-                value={formData.event_id}
+                id="name"
+                className={inputBase()}
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              />
+            </div>
+          </Card>
+
+          <Card title="④ 交流情報">
+            <div>
+              <FieldLabel htmlFor="job_title" title="ご職業" />
+              <input
+                id="job_title"
+                className={inputBase()}
+                value={formData.job_title}
+                onChange={(e) =>
+                  setFormData({ ...formData, job_title: e.target.value })
+                }
               />
             </div>
             <div>
-              <label className={labelClass()} htmlFor="line_id">
-                LINE ID
-              </label>
-              <input
-                id="line_id"
-                className={inputClass(false)}
-                readOnly
-                value={formData.line_id}
+              <FieldLabel
+                htmlFor="target_people"
+                title="どんな協力を求めていますか？"
+                required
+              />
+              <textarea
+                id="target_people"
+                className={`${inputBase()} min-h-[160px] resize-y leading-relaxed`}
+                value={formData.target_people}
+                onChange={(e) =>
+                  setFormData({ ...formData, target_people: e.target.value })
+                }
+                placeholder={TARGET_HELP_PLACEHOLDER}
               />
             </div>
-          </div>
-        </Card>
-
-        <Card title="2. 個人情報（編集可）">
-          <div>
-            <label className={labelClass()} htmlFor="name">
-              お名前
-            </label>
-            <input
-              id="name"
-              className={inputClass(true)}
-              value={formData.name}
-              onChange={(e) =>
-                setFormData({ ...formData, name: e.target.value })
-              }
-              autoComplete="name"
-            />
-          </div>
-          <div>
-            <label className={labelClass()} htmlFor="profile_url">
-              プロフィールURL
-            </label>
-            <input
-              id="profile_url"
-              type="url"
-              className={inputClass(true)}
-              value={formData.profile_url}
-              onChange={(e) =>
-                setFormData({ ...formData, profile_url: e.target.value })
-              }
-              placeholder="https://"
-            />
-          </div>
-          <div>
-            <label className={labelClass()} htmlFor="hobby">
-              趣味
-            </label>
-            <textarea
-              id="hobby"
-              className={`${inputClass(true)} min-h-[88px] resize-y`}
-              value={formData.hobby}
-              onChange={(e) =>
-                setFormData({ ...formData, hobby: e.target.value })
-              }
-            />
-          </div>
-          <div>
-            <label className={labelClass()} htmlFor="self_pr">
-              自己PR
-            </label>
-            <textarea
-              id="self_pr"
-              className={`${inputClass(true)} min-h-[120px] resize-y`}
-              value={formData.self_pr}
-              onChange={(e) =>
-                setFormData({ ...formData, self_pr: e.target.value })
-              }
-            />
-          </div>
-        </Card>
-
-        <Card title="3. 仕事・交流（編集可）">
-          <div>
-            <label className={labelClass()} htmlFor="company_name_input">
-              会社名
-            </label>
-            <input
-              id="company_name_input"
-              className={inputClass(true)}
-              value={formData.company_name_input}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  company_name_input: e.target.value,
-                })
-              }
-            />
-          </div>
-          <div>
-            <label className={labelClass()} htmlFor="job_title">
-              役職
-            </label>
-            <input
-              id="job_title"
-              className={inputClass(true)}
-              value={formData.job_title}
-              onChange={(e) =>
-                setFormData({ ...formData, job_title: e.target.value })
-              }
-            />
-          </div>
-          <div>
-            <label className={labelClass()} htmlFor="target_people">
-              会いたい人・業界
-            </label>
-            <textarea
-              id="target_people"
-              className={`${inputClass(true)} min-h-[88px] resize-y`}
-              value={formData.target_people}
-              onChange={(e) =>
-                setFormData({ ...formData, target_people: e.target.value })
-              }
-            />
-          </div>
-          <div>
-            <label className={labelClass()} htmlFor="ng_people">
-              NGな人・避けたい話題
-            </label>
-            <textarea
-              id="ng_people"
-              className={`${inputClass(true)} min-h-[88px] resize-y`}
-              value={formData.ng_people}
-              onChange={(e) =>
-                setFormData({ ...formData, ng_people: e.target.value })
-              }
-            />
-          </div>
-        </Card>
-
-        <Card title="4. AI分析（参照のみ）">
-          <div className="rounded-xl border-l-4 border-violet-500 bg-violet-50/90 p-4 dark:border-violet-400 dark:bg-violet-950/40">
             <div>
-              <label className={labelClass()} htmlFor="ai_summary">
-                AIサマリー
-              </label>
+              <FieldLabel
+                htmlFor="ng_people"
+                title="どんな協力は求めていませんか？"
+              />
+              <textarea
+                id="ng_people"
+                className={`${inputBase()} min-h-[140px] resize-y leading-relaxed`}
+                value={formData.ng_people}
+                onChange={(e) =>
+                  setFormData({ ...formData, ng_people: e.target.value })
+                }
+                placeholder={NG_HELP_PLACEHOLDER}
+              />
+            </div>
+            <div>
+              <FieldLabel
+                htmlFor="self_pr_value"
+                title="あなたの得意なこと・提供できる価値"
+              />
+              <textarea
+                id="self_pr_value"
+                className={`${inputBase()} min-h-[160px] resize-y leading-relaxed`}
+                value={formData.self_pr}
+                onChange={(e) =>
+                  setFormData({ ...formData, self_pr: e.target.value })
+                }
+              />
+            </div>
+          </Card>
+
+          <Card title="⑤ 会社PRブロック">
+            <div>
+              <FieldLabel htmlFor="self_pr" title="自己PR" />
+              <textarea
+                id="self_pr"
+                className={`${inputBase()} min-h-[120px] resize-y leading-relaxed`}
+                value={formData.self_pr}
+                onChange={(e) =>
+                  setFormData({ ...formData, self_pr: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <FieldLabel htmlFor="company_pr" title="会社PR" />
+              <textarea
+                id="company_pr"
+                className={`${inputBase()} min-h-[120px] resize-y leading-relaxed`}
+                value={formData.company_pr}
+                onChange={(e) =>
+                  setFormData({ ...formData, company_pr: e.target.value })
+                }
+              />
+            </div>
+          </Card>
+
+          <Card title="⑥ AI情報">
+            <div>
+              <FieldLabel htmlFor="ai_summary" title="ai_summary" />
               <textarea
                 id="ai_summary"
-                className={`${inputClass(false)} mt-1 min-h-[120px] resize-y`}
-                readOnly
+                className={`${inputBase()} min-h-[180px] resize-y leading-relaxed`}
                 value={formData.ai_summary}
+                onChange={(e) =>
+                  setFormData({ ...formData, ai_summary: e.target.value })
+                }
               />
             </div>
-            <div className="mt-4">
-              <label className={labelClass()} htmlFor="tags">
-                タグ
-              </label>
-              <textarea
+            <div>
+              <FieldLabel htmlFor="tags" title="tags" />
+              <input
                 id="tags"
-                className={`${inputClass(false)} mt-1 min-h-[72px] resize-y`}
-                readOnly
+                className={inputBase()}
                 value={formData.tags}
+                onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
               />
             </div>
-          </div>
-        </Card>
+          </Card>
 
-        <Card title="5. お支払い・領収書">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className={labelClass()} htmlFor="reception_number">
-                受付番号 <span className="text-red-600">*</span>
-              </label>
-              <input
-                id="reception_number"
-                className={inputClass(true)}
-                value={formData.reception_number}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    reception_number: e.target.value,
-                  })
-                }
-                inputMode="numeric"
-                autoComplete="off"
-                placeholder="例: 1024"
-              />
-            </div>
-            <div>
-              <label className={labelClass()} htmlFor="payment_amount">
-                支払い金額 <span className="text-red-600">*</span>
-              </label>
-              <input
-                id="payment_amount"
-                className={inputClass(true)}
-                value={formData.payment_amount}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    payment_amount: e.target.value,
-                  })
-                }
-                inputMode="decimal"
-                autoComplete="transaction-amount"
-                placeholder="例: 5000"
-              />
-            </div>
+          <div className="pt-4">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-amber-900 to-stone-800 px-6 py-5 text-lg font-bold text-white shadow-xl shadow-stone-900/20 transition hover:from-amber-800 hover:to-stone-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {submitting ? "送信中..." : "参加登録を完了する"}
+            </button>
           </div>
-          <div>
-            <label className={labelClass()} htmlFor="receipt_needed_display">
-              領収書の希望
-            </label>
-            <input
-              id="receipt_needed_display"
-              className={inputClass(false)}
-              readOnly
-              value={receiptLabel}
-            />
-          </div>
-          <div>
-            <label className={labelClass()} htmlFor="receipt_name">
-              領収書宛名
-            </label>
-            <input
-              id="receipt_name"
-              className={inputClass(false)}
-              readOnly
-              value={formData.receipt_name}
-            />
-          </div>
-        </Card>
-
-        <div className="pt-2">
-          <button
-            type="submit"
-            disabled={submitting}
-            className="flex w-full items-center justify-center rounded-2xl bg-violet-600 px-4 py-4 text-lg font-semibold text-white shadow-md transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-violet-500 dark:hover:bg-violet-400"
-          >
-            {submitting ? "送信中..." : "参加登録を完了する"}
-          </button>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }
 
 export default function HomePage() {
   return (
-    <div className="flex min-h-full flex-1 flex-col">
+    <div className="flex min-h-full flex-1 flex-col bg-[#f7f3ef]">
       <Suspense
         fallback={
-          <div className="flex flex-1 items-center justify-center p-16 text-zinc-500 dark:text-zinc-400">
+          <div className="flex min-h-[50vh] flex-1 items-center justify-center bg-gradient-to-b from-[#f7f3ef] to-white p-16 text-stone-500">
             読み込み中...
           </div>
         }
