@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
-import { USER_DATA_FIELDS } from "@/lib/n8n-user-data";
+
+const N8N_GET_USER_DATA_URL =
+  "https://nextasia.app.n8n.cloud/webhook/get-user-data";
 
 const QUERY_KEYS = [
   "event_id",
@@ -94,127 +96,116 @@ function Card({
 
 export function ReturningParticipantForm() {
   const searchParams = useSearchParams();
+  const lineId = searchParams.get("line_id");
   const stableKey = useMemo(() => searchParams.toString(), [searchParams]);
 
-  const [values, setValues] = useState<FormValues>(() =>
-    paramsFromSearch(searchParams),
-  );
+  const [formData, setFormData] = useState<FormValues | null>(() => {
+    const lid = (searchParams.get("line_id") ?? "").trim();
+    if (lid) return null;
+    return paramsFromSearch(searchParams);
+  });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [profileLoading, setProfileLoading] = useState(false);
 
   useEffect(() => {
     setSuccess(false);
     setError(null);
 
     const base = paramsFromSearch(searchParams);
-    const lineId = base.line_id.trim();
+    const lid = (lineId ?? "").trim();
 
-    setValues(base);
-
-    if (!lineId) {
-      setProfileLoading(false);
+    if (!lid) {
+      setFormData(base);
       return;
     }
+
+    setFormData(null);
 
     const ac = new AbortController();
     let cancelled = false;
 
-    setProfileLoading(true);
-
-    (async () => {
+    const fetchUser = async () => {
       try {
         const res = await fetch(
-          `/api/user-data?line_id=${encodeURIComponent(lineId)}`,
+          `${N8N_GET_USER_DATA_URL}?line_id=${encodeURIComponent(lid)}`,
           { signal: ac.signal },
         );
-
-        let data: unknown;
-        try {
-          data = await res.json();
-        } catch {
-          data = null;
-        }
+        const data = (await res.json()) as {
+          status?: string;
+          name?: string;
+          company_name_input?: string;
+          job_title?: string;
+          target_people?: string;
+          ng_people?: string;
+          hobby?: string;
+          self_pr?: string;
+          profile_url?: string;
+          ai_summary?: string;
+          tags?: string;
+          receipt_needed?: string;
+          receipt_name?: string;
+        };
 
         if (cancelled) return;
 
-        if (!res.ok) {
-          console.warn(
-            "[returning form] user-data request failed",
-            res.status,
-            data,
-          );
+        if (data.status === "not_found") {
+          setFormData(base);
           return;
         }
 
-        if (
-          data &&
-          typeof data === "object" &&
-          "status" in data &&
-          (data as { status: string }).status === "not_found"
-        ) {
-          return;
-        }
-
-        if (!data || typeof data !== "object") {
-          return;
-        }
-
-        const row = data as Record<string, unknown>;
-
-        setValues((prev) => {
-          const next = { ...prev };
-          for (const key of USER_DATA_FIELDS) {
-            const v = row[key];
-            next[key] =
-              v === null || v === undefined
-                ? ""
-                : typeof v === "string" ||
-                    typeof v === "number" ||
-                    typeof v === "boolean"
-                  ? String(v)
-                  : JSON.stringify(v);
-          }
-          return next;
+        setFormData({
+          ...base,
+          name: data.name || "",
+          company_name_input: data.company_name_input || "",
+          job_title: data.job_title || "",
+          target_people: data.target_people || "",
+          ng_people: data.ng_people || "",
+          hobby: data.hobby || "",
+          self_pr: data.self_pr || "",
+          profile_url: data.profile_url || "",
+          ai_summary: data.ai_summary || "",
+          tags: data.tags || "",
+          receipt_needed: data.receipt_needed || "",
+          receipt_name: data.receipt_name || "",
         });
-      } catch (e) {
-        if (e instanceof DOMException && e.name === "AbortError") return;
-        console.warn("[returning form] user-data fetch error", e);
-      } finally {
-        if (!cancelled) setProfileLoading(false);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        console.error("Error fetching user:", error);
+        if (!cancelled) setFormData(base);
       }
-    })();
+    };
+
+    fetchUser();
 
     return () => {
       cancelled = true;
       ac.abort();
     };
-  }, [searchParams, stableKey]);
+  }, [lineId, stableKey]);
 
-  const receiptLabel =
-    wantsReceipt(values.receipt_needed) || values.receipt_name.trim()
+  const receiptLabel = formData
+    ? wantsReceipt(formData.receipt_needed) || formData.receipt_name.trim()
       ? "希望済み"
-      : "不要";
-
-  function update<K extends keyof FormValues>(key: K, v: string) {
-    setValues((prev) => ({ ...prev, [key]: v }));
-  }
+      : "不要"
+    : "不要";
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
 
-    if (!values.reception_number.trim()) {
+    if (!formData) return;
+
+    if (!formData.reception_number.trim()) {
       setError("受付番号を入力してください。");
       return;
     }
-    if (!values.payment_amount.trim()) {
+    if (!formData.payment_amount.trim()) {
       setError("支払い金額を入力してください。");
       return;
     }
 
-    const payload = { ...values };
+    const payload = { ...formData };
 
     setSubmitting(true);
     try {
@@ -267,6 +258,14 @@ export function ReturningParticipantForm() {
     );
   }
 
+  if (!formData) {
+    return (
+      <div className="mx-auto flex min-h-[40vh] w-full max-w-2xl items-center justify-center px-4 py-16">
+        <p className="text-zinc-600 dark:text-zinc-400">読み込み中...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6 sm:py-10">
       <header className="mb-6 space-y-2">
@@ -279,15 +278,6 @@ export function ReturningParticipantForm() {
         <p className="rounded-xl border border-amber-200/80 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100">
           前回の情報を元に入力されています。必要に応じて修正してください
         </p>
-        {profileLoading ? (
-          <p
-            className="text-sm text-zinc-500 dark:text-zinc-400"
-            role="status"
-            aria-live="polite"
-          >
-            プロフィールを読み込み中…
-          </p>
-        ) : null}
       </header>
 
       <form className="space-y-6" onSubmit={onSubmit} noValidate>
@@ -309,7 +299,7 @@ export function ReturningParticipantForm() {
               id="event_name"
               className={inputClass(false)}
               readOnly
-              value={values.event_name}
+              value={formData.event_name}
             />
           </div>
           <div>
@@ -320,7 +310,7 @@ export function ReturningParticipantForm() {
               id="event_date"
               className={inputClass(false)}
               readOnly
-              value={values.event_date}
+              value={formData.event_date}
             />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -332,7 +322,7 @@ export function ReturningParticipantForm() {
                 id="event_id"
                 className={inputClass(false)}
                 readOnly
-                value={values.event_id}
+                value={formData.event_id}
               />
             </div>
             <div>
@@ -343,7 +333,7 @@ export function ReturningParticipantForm() {
                 id="line_id"
                 className={inputClass(false)}
                 readOnly
-                value={values.line_id}
+                value={formData.line_id}
               />
             </div>
           </div>
@@ -357,8 +347,10 @@ export function ReturningParticipantForm() {
             <input
               id="name"
               className={inputClass(true)}
-              value={values.name}
-              onChange={(e) => update("name", e.target.value)}
+              value={formData.name}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
               autoComplete="name"
             />
           </div>
@@ -370,8 +362,10 @@ export function ReturningParticipantForm() {
               id="profile_url"
               type="url"
               className={inputClass(true)}
-              value={values.profile_url}
-              onChange={(e) => update("profile_url", e.target.value)}
+              value={formData.profile_url}
+              onChange={(e) =>
+                setFormData({ ...formData, profile_url: e.target.value })
+              }
               placeholder="https://"
             />
           </div>
@@ -382,8 +376,10 @@ export function ReturningParticipantForm() {
             <textarea
               id="hobby"
               className={`${inputClass(true)} min-h-[88px] resize-y`}
-              value={values.hobby}
-              onChange={(e) => update("hobby", e.target.value)}
+              value={formData.hobby}
+              onChange={(e) =>
+                setFormData({ ...formData, hobby: e.target.value })
+              }
             />
           </div>
           <div>
@@ -393,8 +389,10 @@ export function ReturningParticipantForm() {
             <textarea
               id="self_pr"
               className={`${inputClass(true)} min-h-[120px] resize-y`}
-              value={values.self_pr}
-              onChange={(e) => update("self_pr", e.target.value)}
+              value={formData.self_pr}
+              onChange={(e) =>
+                setFormData({ ...formData, self_pr: e.target.value })
+              }
             />
           </div>
         </Card>
@@ -407,9 +405,12 @@ export function ReturningParticipantForm() {
             <input
               id="company_name_input"
               className={inputClass(true)}
-              value={values.company_name_input}
+              value={formData.company_name_input}
               onChange={(e) =>
-                update("company_name_input", e.target.value)
+                setFormData({
+                  ...formData,
+                  company_name_input: e.target.value,
+                })
               }
             />
           </div>
@@ -420,8 +421,10 @@ export function ReturningParticipantForm() {
             <input
               id="job_title"
               className={inputClass(true)}
-              value={values.job_title}
-              onChange={(e) => update("job_title", e.target.value)}
+              value={formData.job_title}
+              onChange={(e) =>
+                setFormData({ ...formData, job_title: e.target.value })
+              }
             />
           </div>
           <div>
@@ -431,8 +434,10 @@ export function ReturningParticipantForm() {
             <textarea
               id="target_people"
               className={`${inputClass(true)} min-h-[88px] resize-y`}
-              value={values.target_people}
-              onChange={(e) => update("target_people", e.target.value)}
+              value={formData.target_people}
+              onChange={(e) =>
+                setFormData({ ...formData, target_people: e.target.value })
+              }
             />
           </div>
           <div>
@@ -442,8 +447,10 @@ export function ReturningParticipantForm() {
             <textarea
               id="ng_people"
               className={`${inputClass(true)} min-h-[88px] resize-y`}
-              value={values.ng_people}
-              onChange={(e) => update("ng_people", e.target.value)}
+              value={formData.ng_people}
+              onChange={(e) =>
+                setFormData({ ...formData, ng_people: e.target.value })
+              }
             />
           </div>
         </Card>
@@ -458,7 +465,7 @@ export function ReturningParticipantForm() {
                 id="ai_summary"
                 className={`${inputClass(false)} mt-1 min-h-[120px] resize-y`}
                 readOnly
-                value={values.ai_summary}
+                value={formData.ai_summary}
               />
             </div>
             <div className="mt-4">
@@ -469,7 +476,7 @@ export function ReturningParticipantForm() {
                 id="tags"
                 className={`${inputClass(false)} mt-1 min-h-[72px] resize-y`}
                 readOnly
-                value={values.tags}
+                value={formData.tags}
               />
             </div>
           </div>
@@ -484,9 +491,12 @@ export function ReturningParticipantForm() {
               <input
                 id="reception_number"
                 className={inputClass(true)}
-                value={values.reception_number}
+                value={formData.reception_number}
                 onChange={(e) =>
-                  update("reception_number", e.target.value)
+                  setFormData({
+                    ...formData,
+                    reception_number: e.target.value,
+                  })
                 }
                 inputMode="numeric"
                 autoComplete="off"
@@ -500,9 +510,12 @@ export function ReturningParticipantForm() {
               <input
                 id="payment_amount"
                 className={inputClass(true)}
-                value={values.payment_amount}
+                value={formData.payment_amount}
                 onChange={(e) =>
-                  update("payment_amount", e.target.value)
+                  setFormData({
+                    ...formData,
+                    payment_amount: e.target.value,
+                  })
                 }
                 inputMode="decimal"
                 autoComplete="transaction-amount"
@@ -529,7 +542,7 @@ export function ReturningParticipantForm() {
               id="receipt_name"
               className={inputClass(false)}
               readOnly
-              value={values.receipt_name}
+              value={formData.receipt_name}
             />
           </div>
         </Card>
