@@ -9,9 +9,6 @@ import {
 } from "react";
 import { useSearchParams } from "next/navigation";
 
-const N8N_GET_USER_URL =
-  "https://nextasia.app.n8n.cloud/webhook/98cd8557-5c9e-4189-abec-86a132e60efb";
-
 const QUERY_KEYS = [
   "event_id",
   "line_id",
@@ -147,10 +144,11 @@ function NetworkingFormPage() {
     const fetchUser = async () => {
       try {
         const res = await fetch(
-          `${N8N_GET_USER_URL}?line_id=${encodeURIComponent(lineId)}`,
+          `/api/user-data?line_id=${encodeURIComponent(lineId)}`,
         );
         const data = (await res.json()) as {
           status?: string;
+          error?: string;
           name?: string;
           company_name_input?: string;
           job_title?: string;
@@ -166,6 +164,11 @@ function NetworkingFormPage() {
         };
 
         if (cancelled) return;
+
+        if (!res.ok) {
+          console.log("[networking form] /api/user-data failed", res.status, data);
+          return;
+        }
 
         if (data?.status === "not_found") {
           setFormData((prev) => ({ ...prev, ...emptyN8nProfile() }));
