@@ -155,8 +155,8 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-white/90 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.08)] backdrop-blur-md sm:p-8">
-      <h2 className="border-b border-stone-100 pb-4 text-lg font-bold tracking-tight text-stone-900 sm:text-xl">
+    <section className="rounded-2xl bg-white/90 border border-zinc-200 shadow-[0_10px_30px_rgba(0,0,0,0.06)] p-6 sm:p-8">
+      <h2 className="border-b border-zinc-100 pb-4 text-lg font-bold tracking-tight text-stone-900 sm:text-xl">
         {title}
       </h2>
       <div className="mt-6 space-y-7">{children}</div>
@@ -165,7 +165,7 @@ function Card({
 }
 
 function inputBase() {
-  return "w-full rounded-xl border border-zinc-200 bg-white px-4 py-3.5 text-base text-stone-900 shadow-sm placeholder:text-stone-400 transition focus:border-amber-600/40 focus:outline-none focus:ring-2 focus:ring-amber-600/15";
+  return "w-full bg-white/90 border border-zinc-300 focus:border-amber-400 focus:ring-4 focus:ring-amber-100 shadow-inner rounded-xl px-4 py-3.5 text-base text-stone-900 placeholder:text-stone-400 transition focus:outline-none";
 }
 
 function NetworkingFormPage() {
@@ -362,7 +362,7 @@ function NetworkingFormPage() {
     return (
       <div className="mx-auto w-full max-w-3xl px-5 py-14 sm:px-8">
         <div
-          className="rounded-2xl border border-zinc-200 bg-white/90 p-10 text-center shadow-[0_20px_60px_rgba(0,0,0,0.08)] backdrop-blur-md"
+          className="rounded-3xl bg-white/80 backdrop-blur-xl border border-white/50 shadow-[0_25px_70px_rgba(0,0,0,0.12)] p-10 text-center"
           role="status"
         >
           <p className="text-xl font-bold text-emerald-900">
@@ -374,22 +374,29 @@ function NetworkingFormPage() {
   }
 
   return (
-    <div className="min-h-full bg-gradient-to-b from-[#f7f3ef] to-white pb-20 pt-10 sm:pb-24 sm:pt-14">
-      <div className="mx-auto w-full max-w-3xl px-5 sm:px-8">
-        <header className="mb-10 space-y-4 text-center sm:mb-12 sm:text-left">
-          <p className="text-sm font-semibold tracking-wide text-amber-900/80">
-            再訪のお客様 · 参加登録
-          </p>
-          <h1 className="text-3xl font-bold tracking-tight text-stone-900 sm:text-4xl">
-            参加登録フォーム
-          </h1>
-        </header>
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#fdfaf6] via-[#f7f7f7] to-[#eef1f5] pb-20 pt-10 sm:pb-24 sm:pt-14">
+      <div className="absolute -top-32 -left-32 h-96 w-96 rounded-full bg-amber-200/30 blur-3xl" />
+      <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-yellow-100/30 blur-3xl" />
 
-        <section className="mb-8 rounded-2xl border border-zinc-200 bg-white/90 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.08)] backdrop-blur-md sm:p-8">
-          <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-stone-500">
-            データ受信状況
-          </h2>
-          <dl className="mt-5 grid gap-5 sm:grid-cols-2">
+      <div className="relative mx-auto w-full max-w-3xl px-5 sm:px-8">
+        <div className="rounded-3xl bg-white/80 backdrop-blur-xl border border-white/50 shadow-[0_25px_70px_rgba(0,0,0,0.12)] p-6 sm:p-10">
+          <header className="mb-10 space-y-4 text-center sm:mb-12 sm:text-left">
+            <p className="text-sm font-semibold tracking-wide text-stone-700">
+              再訪のお客様 · 参加登録
+            </p>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight text-stone-900 sm:text-4xl">
+                参加登録フォーム
+              </h1>
+              <div className="mt-2 h-[2px] w-20 bg-gradient-to-r from-amber-400 to-transparent" />
+            </div>
+          </header>
+
+          <section className="mb-8 rounded-2xl bg-white/90 border border-zinc-200 shadow-[0_10px_30px_rgba(0,0,0,0.06)] p-6">
+            <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-stone-500">
+              データ受信状況
+            </h2>
+            <dl className="mt-5 grid gap-5 sm:grid-cols-2">
             <div className="rounded-lg bg-stone-50/80 px-4 py-3">
               <dt className="text-xs font-bold text-stone-500">LINE ID</dt>
               <dd className="mt-1 break-all font-mono text-sm font-medium text-stone-900">
@@ -414,10 +421,10 @@ function NetworkingFormPage() {
                 {formData.event_date || "—"}
               </dd>
             </div>
-          </dl>
-        </section>
+            </dl>
+          </section>
 
-        <form className="space-y-8" onSubmit={onSubmit} noValidate>
+          <form className="space-y-8" onSubmit={onSubmit} noValidate>
           {error ? (
             <div
               className="rounded-xl border border-red-200 bg-red-50/90 px-5 py-4 text-sm font-medium text-red-900 shadow-sm"
@@ -701,12 +708,13 @@ function NetworkingFormPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-amber-900 to-stone-800 px-6 py-5 text-lg font-bold text-white shadow-xl shadow-stone-900/20 transition hover:from-amber-800 hover:to-stone-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex w-full items-center justify-center bg-black hover:bg-zinc-800 shadow-[0_10px_30px_rgba(0,0,0,0.3)] rounded-xl px-6 py-5 text-lg font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting ? "送信中..." : "参加登録を完了する"}
             </button>
           </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   );
@@ -714,10 +722,10 @@ function NetworkingFormPage() {
 
 export default function HomePage() {
   return (
-    <div className="flex min-h-full flex-1 flex-col bg-[#f7f3ef]">
+    <div className="flex min-h-full flex-1 flex-col">
       <Suspense
         fallback={
-          <div className="flex min-h-[50vh] flex-1 items-center justify-center bg-gradient-to-b from-[#f7f3ef] to-white p-16 text-stone-500">
+          <div className="flex min-h-[50vh] flex-1 items-center justify-center bg-gradient-to-br from-[#fdfaf6] via-[#f7f7f7] to-[#eef1f5] p-16 text-stone-500">
             読み込み中...
           </div>
         }
