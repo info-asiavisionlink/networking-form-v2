@@ -9,6 +9,9 @@ import {
 } from "react";
 import { useSearchParams } from "next/navigation";
 
+const WEBHOOK_URL =
+  "https://nextasia.app.n8n.cloud/webhook/082ed348-0d45-4d9b-9d41-ed90cb67dc1e";
+
 type FormValues = {
   event_id: string;
   line_id: string;
@@ -313,49 +316,35 @@ function NetworkingFormPage() {
     }
 
     setSubmitting(true);
-    try {
-      const payload = {
-        event_id: formData.event_id,
-        line_id: formData.line_id,
-        event_name: formData.event_name,
-        event_date: formData.event_date,
-        name: formData.name,
-        company_name_input: formData.company_name,
-        job_title: formData.job_title,
-        target_people: formData.target_people,
-        ng_people: formData.ng_people,
-        hobby: formData.hobby,
-        self_pr: formData.self_pr,
-        profile_url: formData.profile_url,
-        ai_summary: formData.ai_summary,
-        tags: formData.tags,
-        receipt_needed: formData.receipt_needed,
-        receipt_name: formData.receipt_name,
-        reception_number: formData.reception_number,
-        payment_amount: formData.payment_amount,
-        // 追加フィールド（UI用）
-        company_pr: formData.company_pr,
-        company_info_mode: formData.company_info_mode,
-      };
+    const params = new URLSearchParams({
+      line_id: formData.line_id || "",
+      event_id: formData.event_id || "",
+      event_name: formData.event_name || "",
+      event_date: formData.event_date || "",
 
-      const res = await fetch("/api/submit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      reception_number: formData.reception_number || "",
+      amount: formData.payment_amount || "",
+      receipt_needed: formData.receipt_needed || "",
+      receipt_name: formData.receipt_name || "",
 
-      const data = (await res.json()) as { success?: boolean };
-      if (!res.ok || !data.success) {
-        setError("送信に失敗しました。もう一度お試しください");
-        return;
-      }
-      setSuccess(true);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch {
-      setError("送信に失敗しました。もう一度お試しください");
-    } finally {
-      setSubmitting(false);
-    }
+      name: formData.name || "",
+      company_name: formData.company_name || "",
+      job_title: formData.job_title || "",
+
+      target_people: formData.target_people || "",
+      ng_people: formData.ng_people || "",
+      hobby: formData.hobby || "",
+
+      self_pr: formData.self_pr || "",
+      company_pr: formData.company_pr || "",
+      profile_url: formData.profile_url || "",
+
+      ai_summary: formData.ai_summary || "",
+      tags: formData.tags || "",
+    });
+
+    const url = `${WEBHOOK_URL}?${params.toString()}`;
+    window.location.href = url;
   }
 
   if (success) {
@@ -446,6 +435,7 @@ function NetworkingFormPage() {
                     setFormData({ ...formData, reception_number: e.target.value })
                   }
                   inputMode="numeric"
+                  placeholder="運営から伝えられたカードの番号を入力してください"
                 />
               </div>
               <div>
@@ -458,6 +448,7 @@ function NetworkingFormPage() {
                     setFormData({ ...formData, payment_amount: e.target.value })
                   }
                   inputMode="decimal"
+                  placeholder="例：3000"
                 />
               </div>
             </div>
